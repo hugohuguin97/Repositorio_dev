@@ -2,13 +2,61 @@ import re
 import wx
 import wx.grid as gridlib
 import logging
+import time
 
 from os import path
 from threading import Thread
 from collections import defaultdict
 from usolibpy.rawfile import RAWFile2
+import xml.etree.ElementTree as ET
 
 from .otros import comparar_topologia
+
+TIPOS_VALIDOS = [
+    "NAFlag",
+    "sysNetworkCategory",
+    "sysNetworkConfig",
+    "sysNetCompanies",
+    "GeographicalRegion",
+    "SubGeographicalRegion",
+    "Substation",
+    "VoltageLevel",
+    "BusbarSection",
+    "ConnectivityNode",
+    "SynchronousMachine",
+    "StaticVarCompensator",
+    "ConformLoad",
+    "NonConformLoad",
+    "Disconnector",
+    "GroundDisconnector",
+    "Breaker",
+    "ShuntCompensator",
+    "SeriesCompensator",
+    "PowerTransformer",
+    "ComplexTransformer",
+    "TransformerWinding",
+    "TapChanger",
+    "LineVoltageLevel",
+    "ACLineSegment",
+    "Terminal",
+    "ReactiveCapabilityCurve",
+    "SteamTurbine",
+    "sysGenPowerPlants",
+    "CombinedCyclePlant",
+    "HydroPowerPlant",
+    "SolarPlant",
+    "WindPlant",
+    "ThermalPowerPlant",
+    "HydroGeneratingUnit",
+    "SolarGeneratingUnit",
+    "ThermalGeneratingUnit",
+    "WindGeneratingUnit",
+    "CombinedCycleConfiguration",
+    "CurveData",
+    "BaseVoltage",
+    "IncrementalHeatRateCurve",
+    "HydroPowerDischargeCurve",
+]
 
 RAW_REGEX = re.compile(r'.*\d{2}\w{3}\d{4}_(\d{2}).r?R?a?A?w?W?')
 EVT_RESULT_ID = wx.NewId()
@@ -35,17 +83,6 @@ class LectorRamas(Thread):
         # self._mf.RAWParameters_Panel._recargar_raws.Enable(True)
         
         num_horas = len(self._raws)
-
-        # rojo = wx.Colour(238,46,46)
-        # verde = wx.Colour(86,219,65)
-        # negro = wx.Colour(0,0,0)
-        # blanco = wx.Colour(255,255,255)
-
-        # self._mf.RAWDiag_Panel._statusRamas = defaultdict(
-        #     lambda: {"estatus" : [0 for x in range(num_horas)],
-        #              "datos" : [],
-        #              "zona_carga": set(),
-        #              "raw" : [] })
         
         self._mf.RAWDiag_Panel._statusBuses = defaultdict(
             lambda: {"estatus" : [0 for x in range(num_horas)],
@@ -183,8 +220,123 @@ class CompararTopologia(Thread):
         )
 
         wx.PostEvent(self._mf, ResultEvent(True)) 
-  
-  
+   
+class Verificador_XML(Thread):
+    """Realiza las verificaciones seleccionadas.
+    """
+    def __init__(self, parent, mf):
+        Thread.__init__(self)
+        self.mf = parent
+        self.mfp = mf
+        self.lista_ok = []
+        self.count_list = []
+
+    def run(self):
+        
+        xml_files = []
+        item_count = self.mf.XML_ListCtrl.GetItemCount()
+        for index in range(item_count):
+            clave = self.mf.XML_ListCtrl.GetItemText(index, 0)
+            xml_files.append(clave)
+            self.mfp.val_dic[clave]
+        
+        
+        if xml_files != []:
+            for file_name in xml_files:
+                ruta_completa = path.join(self.mf.XMLselected_path, file_name)
+            
+                try:
+                    # Leer el archivo XML como Unicode
+                    with open(ruta_completa, 'r', encoding='utf-8') as file:
+                        xml_content = file.read()
+                except Exception as e:
+                    try:
+                        # Leer el archivo XML como Unicode
+                        with open(ruta_completa, 'r', encoding='iso-8859-1') as file:
+                            xml_content = file.read()
+                    except Exception as e:
+                        wx.MessageBox(f"Error al cargar el archivo XML: {e}", "Error", wx.OK | wx.ICON_ERROR)
+
+                root = ET.fromstring(xml_content)
+            
+                self.mf.log.info(f"APLICANDO BUSQUEDA EN EL JOB '{file_name}'")
+                
+                self.verificar_naflags(file_name, root)
+                self.mfp.SetStatusText("Terminó la actividad")
+                self.mfp.worker = None
+        else:
+            mensaje = (
+                f"Seleccionar un archivo .xml"
+            )
+            dial = wx.MessageDialog( None, mensaje, "", wx.OK | wx.ICON_ERROR)
+            dial.ShowModal()
+            self.mfp.SetStatusText("No seleccionó un archivo, no se efecturaron las validaciones")
+            self.mfp.worker = None
+            return None
+            
+    def verificar_naflags(self, file_name, root):
+        
+        # Deshabilitar el botón mientras se realiza el proceso
+        self.mf.bto_verificar.Disable()  # Desactivar el botón mientras se ejecuta el proceso
+        self.mf.Refresh()  # Actualizar la apariencia del botón
+        
+        # Analizar el XML
+        instances_with_naflag = []
+        elementos = []
+        elementos_end = []
+        val_list = set()
+        instances_with_naflag_set = set()
+        
+        # Iterar sobre los elementos 'Parent'
+        for parent in root.findall('.//Parent'):
+            for instance in parent:
+                for indice, elemento in enumerate(TIPOS_VALIDOS):
+                    # print(elemento, instance, instance.attrib)
+                    # Verificar si la instancia contiene 'ELEMENTOS'
+                    if elemento in instance.tag or elemento in instance.attrib:
+                        # Verificar si el elemento ya está en el conjunto
+                        if (indice, elemento) not in val_list:
+                            # Agregar el elemento al conjunto
+                            val_list.add((indice, elemento))
+                        path = parent.attrib.get('Path', '')
+                        name = instance.attrib.get('Name', '')
+                        scada_flag = instance.attrib.get('SCADAFlag', '')
+                        na_flag = instance.attrib.get('NAFlag', '')
+                        elem = instance.tag
+                        if (path, name, scada_flag, na_flag, elem) not in instances_with_naflag_set:
+                            instances_with_naflag.append({'Path': path, 
+                                                        'Name': name, 
+                                                        'SCADAFlag': scada_flag, 
+                                                        'NAFlag': na_flag, 
+                                                        'Element': elem,})
+                            instances_with_naflag_set.add((path, name, scada_flag, na_flag, elem))  # Agregar elemento al conjunto
+
+                        elementos.append(elem)
+                        
+                        elementos_end.append(f"</{elem}>")
+        # Agregar elementos al ComboBox
+        self.mfp.val_dic[file_name] = val_list
+        time.sleep(0.1)
+        # Imprimir los resultados
+        for instance in instances_with_naflag:
+            # print(instance)
+            if instance['NAFlag'] != '' and instance['SCADAFlag'] != '':
+                self.mf.log.warning(f"El '{instance['Element']}' en: {instance['Path']}/{instance['Name']} se encuentran las banderas NAFlag a: '{instance['NAFlag']}' y SCADAFlag a '{instance['SCADAFlag']}'")
+            elif instance['SCADAFlag'] != '':
+                self.mf.log.warning(f"El '{instance['Element']}' en: {instance['Path']}/{instance['Name']} se encuentra la bandera SCADAFlag a: '{instance['SCADAFlag']}'")
+            elif instance['NAFlag'] != '':
+                self.mf.log.warning(f"El '{instance['Element']}' en: {instance['Path']}/{instance['Name']} se encuentra la bandera NAFlag a: '{instance['NAFlag']}'")
+            elif instance == '':
+                self.mf.log.warning(f"Validacion completa, sin banderas.")
+                
+        wx.CallAfter(self.process_finished)
+        
+    def process_finished(self):
+        # Cambiar el color del botón a verde
+        self.mf.bto_verificar.SetBackgroundColour(wx.Colour(40, 160, 30))
+        self.mf.bto_verificar.SetForegroundColour(wx.WHITE)
+        self.mf.Refresh()  # Actualizar la apariencia del botón
+        
 class Grid2(gridlib.Grid):
 
     def __init__(self, panel, thread_verificar = None,  buscar = 1, copiar = 1,

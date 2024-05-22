@@ -7,13 +7,17 @@ import wx.stc as stc
 import logging
 import wx.lib.scrolledpanel
 import wx.lib.agw.aui as aui
+import xml.etree.ElementTree as ET
+import time
+
+from collections import defaultdict
 from glob import glob
 from os.path import join, basename, getmtime
 from datetime import datetime, timedelta, date
-from threading import Thread
 from os import path
-import xml.etree.ElementTree as ET
-import time
+
+from .threads import Verificador_XML
+
 ruta_base = path.abspath(path.join(__file__, "../.."))
 ruta_resultados = path.join(ruta_base,"resultados")
 ruta_data = path.join(ruta_base,"data")
@@ -24,52 +28,6 @@ name_archivo = datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
 # Guardar el archivo con el nombre basado en la fecha
 archivo_xlsx = f"ValidacionesXML{name_archivo}.xlsx"
 path_exp = path.join(ruta_resultados, archivo_xlsx)
-
-TIPOS_VALIDOS = [
-    "NAFlag",
-    "sysNetworkCategory",
-    "sysNetworkConfig",
-    "sysNetCompanies",
-    "GeographicalRegion",
-    "SubGeographicalRegion",
-    "Substation",
-    "VoltageLevel",
-    "BusbarSection",
-    "ConnectivityNode",
-    "SynchronousMachine",
-    "StaticVarCompensator",
-    "ConformLoad",
-    "NonConformLoad",
-    "Disconnector",
-    "GroundDisconnector",
-    "Breaker",
-    "ShuntCompensator",
-    "SeriesCompensator",
-    "PowerTransformer",
-    "ComplexTransformer",
-    "TransformerWinding",
-    "TapChanger",
-    "LineVoltageLevel",
-    "ACLineSegment",
-    "Terminal",
-    "ReactiveCapabilityCurve",
-    "SteamTurbine",
-    "sysGenPowerPlants",
-    "CombinedCyclePlant",
-    "HydroPowerPlant",
-    "SolarPlant",
-    "WindPlant",
-    "ThermalPowerPlant",
-    "HydroGeneratingUnit",
-    "SolarGeneratingUnit",
-    "ThermalGeneratingUnit",
-    "WindGeneratingUnit",
-    "CombinedCycleConfiguration",
-    "CurveData",
-    "BaseVoltage",
-    "IncrementalHeatRateCurve",
-    "HydroPowerDischargeCurve",
-]
 
 #Manejador del logger para el verificador
 class CustomConsoleLogHandler(logging.StreamHandler):
@@ -100,6 +58,7 @@ class XML_panel(wx.lib.scrolledpanel.ScrolledPanel):
         icons_path = path.join(ruta_base, "iconos")
         cen_bm = path.join(icons_path,"CENACE-logo-completo.png")
         self.mf.logo_cen2.SetBitmap(wx.Bitmap( cen_bm, wx.BITMAP_TYPE_ANY ))
+        # self.mf.val_dic = defaultdict(list)
         
         self.log = log
         self.xml_log_textCtrl = self.mf.xml_log_textCtrl
@@ -176,7 +135,8 @@ class XML_panel(wx.lib.scrolledpanel.ScrolledPanel):
         # Declaramos el bto de verificar
         self.bto_verificar = self.mf.bto_verificar_xml
         self.bto_verificar.Bind(
-            wx.EVT_BUTTON, lambda event: self.inicializar_thread(event, Verificador, self.mf, "Realizando validaciones")
+            wx.EVT_BUTTON, lambda event: self.inicializar_thread(event, Verificador_XML, self.mf, "Realizando validaciones")
+            # wx.EVT_BUTTON, lambda event: self.inicializar_thread(event, Verificador, self.mf, "Realizando validaciones")
         )
         
         self.search_textCtrl = self.mf.search_textCtrl
@@ -214,6 +174,7 @@ class XML_panel(wx.lib.scrolledpanel.ScrolledPanel):
             Variable de la carpeta elegida
             
         """
+        self.mf.val_dic = defaultdict(list)
         start_time = self.start_tPicker.GetTime()
         end_time = self.end_tPicker.GetTime()
         start_hour, start_minute, start_second = start_time
@@ -262,13 +223,23 @@ class XML_panel(wx.lib.scrolledpanel.ScrolledPanel):
     
     #Seccion de funciones adicionales
     def procesar_xml(self, event ):
+        # Limpia la lista de elementos
+        self.verif_cBox.Clear()
+        # Escribe Validaciones en la lsita de elementos
+        self.verif_cBox.SetValue("Validaciones")
         # Obtener el índice del elemento seleccionado
         index = event.GetIndex()
         # Obtener el nombre del archivo seleccionado
         self.file_name = self.XML_ListCtrl.GetItemText(index)
+        val_list = self.mf.val_dic[self.file_name]
         ruta_completa = path.join(self.XMLselected_path, self.file_name)
         codificaciones = ['utf-8', 'iso-8859-1', 'latin-1']
         
+        # print(val_list)
+        for i, validacion in val_list:
+            # print(validacion)
+            self.verif_cBox.Append(validacion)
+        self.mf.Refresh()
         try:
             # Leer el archivo XML como Unicode
             with open(ruta_completa, 'r', encoding='utf-8') as file:
@@ -444,10 +415,12 @@ class XML_panel(wx.lib.scrolledpanel.ScrolledPanel):
         self.search_textCtrl.Clear()
         # Limpia el panel de validaciones
         self.verif_textCtrl.Clear()
+        
         # Limpia la lista de elementos
-        self.verif_cBox.Clear()
+        # self.verif_cBox.Clear()
         # Escribe Validaciones en la lsita de elementos
-        self.verif_cBox.SetValue("Validaciones")
+        # self.verif_cBox.SetValue("Validaciones")
+        
         # Cambiar el color del botón de nuevo a su color original
         self.bto_verificar.SetBackgroundColour(wx.NullColour)  # Restaurar el color original
         self.bto_verificar.SetForegroundColour(wx.BLACK)
@@ -460,99 +433,4 @@ class XML_panel(wx.lib.scrolledpanel.ScrolledPanel):
         self.search_textCtrl.Clear()
         self.word_styles_aux = {}
         self.Refresh()  # Actualizar la apariencia del botón
-        
-class Verificador(Thread):
-    """Realiza las verificaciones seleccionadas.
-    """
-    def __init__(self, parent, mf):
-        Thread.__init__(self)
-        self.mf = parent
-        self.mfp = mf
-        self.lista_ok = []
-        self.count_list = []
-
-    def run(self):
-        try:
-            # print(self.mf.root)
-            root = self.mf.root
-        except:
-            mensaje = (
-                f"Seleccionar un archivo .xml"
-            )
-            dial = wx.MessageDialog( None, mensaje, "", wx.OK | wx.ICON_ERROR)
-            dial.ShowModal()
-            self.mfp.SetStatusText("No seleccionó un archivo, no se efecturaron las validaciones")
-            self.mfp.worker = None
-            return None
-            
-        self.mf.log.info(f"APLICANDO BUSQUEDA EN EL JOB '{self.mf.file_name}'")
-        
-        self.verificar_naflags(root)
-        self.mfp.SetStatusText("Terminó la actividad")
-        self.mfp.worker = None
-            
-    def verificar_naflags(self, root):
-        
-        # Deshabilitar el botón mientras se realiza el proceso
-        self.mf.bto_verificar.Disable()  # Desactivar el botón mientras se ejecuta el proceso
-        self.mf.Refresh()  # Actualizar la apariencia del botón
-        
-        # Analizar el XML
-        instances_with_naflag = []
-        elementos = []
-        elementos_end = []
-        val_list = set()
-        instances_with_naflag_set = set()
-        
-        # Iterar sobre los elementos 'Parent'
-        for parent in root.findall('.//Parent'):
-            for instance in parent:
-                for indice, elemento in enumerate(TIPOS_VALIDOS):
-                    # print(elemento, instance, instance.attrib)
-                    # Verificar si la instancia contiene 'ELEMENTOS'
-                    if elemento in instance.tag or elemento in instance.attrib:
-                        # Verificar si el elemento ya está en el conjunto
-                        if (indice, elemento) not in val_list:
-                            # Agregar el elemento al conjunto
-                            val_list.add((indice, elemento))
-                        path = parent.attrib.get('Path', '')
-                        name = instance.attrib.get('Name', '')
-                        scada_flag = instance.attrib.get('SCADAFlag', '')
-                        na_flag = instance.attrib.get('NAFlag', '')
-                        elem = instance.tag
-                        if (path, name, scada_flag, na_flag, elem) not in instances_with_naflag_set:
-                            instances_with_naflag.append({'Path': path, 
-                                                        'Name': name, 
-                                                        'SCADAFlag': scada_flag, 
-                                                        'NAFlag': na_flag, 
-                                                        'Element': elem,})
-                            instances_with_naflag_set.add((path, name, scada_flag, na_flag, elem))  # Agregar elemento al conjunto
-
-                        elementos.append(elem)
-                        
-                        elementos_end.append(f"</{elem}>")
-        # Agregar elementos al ComboBox
-        for index, value in val_list:
-            self.mf.verif_cBox.Append(value)
-        time.sleep(0.1)
-        # Imprimir los resultados
-        for instance in instances_with_naflag:
-            # print(instance)
-            if instance['NAFlag'] != '' and instance['SCADAFlag'] != '':
-                self.mf.log.warning(f"El '{instance['Element']}' en: {instance['Path']}/{instance['Name']} se encuentran las banderas NAFlag a: '{instance['NAFlag']}' y SCADAFlag a '{instance['SCADAFlag']}'")
-            elif instance['SCADAFlag'] != '':
-                self.mf.log.warning(f"El '{instance['Element']}' en: {instance['Path']}/{instance['Name']} se encuentra la bandera SCADAFlag a: '{instance['SCADAFlag']}'")
-            elif instance['NAFlag'] != '':
-                self.mf.log.warning(f"El '{instance['Element']}' en: {instance['Path']}/{instance['Name']} se encuentra la bandera NAFlag a: '{instance['NAFlag']}'")
-            elif instance == '':
-                self.mf.log.warning(f"Validacion completa, sin banderas.")
-                
-        wx.CallAfter(self.process_finished)
-        
-    def process_finished(self):
-        # Cambiar el color del botón a verde
-        self.mf.bto_verificar.SetBackgroundColour(wx.Colour(40, 160, 30))
-        self.mf.bto_verificar.SetForegroundColour(wx.WHITE)
-        self.mf.Refresh()  # Actualizar la apariencia del botón
-        
-        
+       
