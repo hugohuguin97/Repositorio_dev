@@ -100,31 +100,6 @@ class MainFrameMainF( main_app.MainF ):
         if event.completed is None:
             self.SetStatusText('La actividad fue abortada')
 
-        # elif event.completed is True:
-        #     self.SetStatusText(u'Terminó la actividad')
-        #     if event.data and event.data['ACTIVIDAD'] == 'VERIFICADOR':
-        #         self._carpeta_final = event.data['CARPETA_FINAL']
-        #         self._val_ejecutado = True
-        #         self._validaciones = event.data['VALIDACIONES']
-        #         if self._modo.GetSelection() == 1:
-        #             self.mainPanel._upload.Enable()
-        #         elif (self._modo.GetSelection() == 0 or self._modo.GetSelection() == 3):
-        #             self.mainPanel._upload_2.Enable()
-        #     elif event.data and event.data['ACTIVIDAD'] == 'UPDATER':
-        #         self._current_sha = event.data['SHA_FINAL']
-        #     elif event.data and event.data['ACTIVIDAD'] == 'UPLOADER_PRUEBA':
-
-        #         log.info('Limpiando directorio temporal')
-        #         try:
-        #             rmtree(event.data['CARPETA_TEMPORAL'])
-        #         except:
-        #             pass
-        #         log.info('Termino la limpieza del directorio temporal')
-        #     elif event.data and event.data['ACTIVIDAD'] == 'READ_EXT':
-
-        #         self.mainPanel._start.Enable()
-        #         self.mainPanel._upoload_mongo.Enable()
-
         elif event.completed is False:
             self.SetStatusText(u'Ocurrió un error')
 

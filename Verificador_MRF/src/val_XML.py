@@ -539,13 +539,13 @@ class Verificador(Thread):
         for instance in instances_with_naflag:
             # print(instance)
             if instance['NAFlag'] != '' and instance['SCADAFlag'] != '':
-                self.mf.log.info(f"El '{instance['Element']}' en: {instance['Path']}/{instance['Name']} se encuentran las banderas NAFlag a: '{instance['NAFlag']}' y SCADAFlag a '{instance['SCADAFlag']}'")
+                self.mf.log.warning(f"El '{instance['Element']}' en: {instance['Path']}/{instance['Name']} se encuentran las banderas NAFlag a: '{instance['NAFlag']}' y SCADAFlag a '{instance['SCADAFlag']}'")
             elif instance['SCADAFlag'] != '':
-                self.mf.log.info(f"El '{instance['Element']}' en: {instance['Path']}/{instance['Name']} se encuentra la bandera SCADAFlag a: '{instance['SCADAFlag']}'")
+                self.mf.log.warning(f"El '{instance['Element']}' en: {instance['Path']}/{instance['Name']} se encuentra la bandera SCADAFlag a: '{instance['SCADAFlag']}'")
             elif instance['NAFlag'] != '':
-                self.mf.log.info(f"El '{instance['Element']}' en: {instance['Path']}/{instance['Name']} se encuentra la bandera NAFlag a: '{instance['NAFlag']}'")
+                self.mf.log.warning(f"El '{instance['Element']}' en: {instance['Path']}/{instance['Name']} se encuentra la bandera NAFlag a: '{instance['NAFlag']}'")
             elif instance == '':
-                self.mf.log.info(f"Validacion completa, sin banderas.")
+                self.mf.log.warning(f"Validacion completa, sin banderas.")
                 
         wx.CallAfter(self.process_finished)
         
