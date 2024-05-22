@@ -370,30 +370,87 @@ def comparar_topologia(raw1, raw2, sistema, modo_raw1=1, modo_raw2=1, file="repo
   
   eq_falt1 = []
   eq_falt2 = []
-  RAW1_fatl = []
-  RAW2_fatl = []
+  RAW1_falt = []
+  RAW2_falt = []
+  RAW1_falt2 = []
+  RAW2_falt2 = []
   
   for se, equipos in final_filtered_data.items():
     for key in equipos.keys():
       eq_falt1.append((equipos[key][0], se[1], 1, key))
       eq_falt2.append((equipos[key][1], se[1], 1, key))
-  
+      
   for entry in eq_falt1:
-      conjuntos, num, val, label = entry
-      # Para cada elemento en el conjunto, crear una nueva tupla y agregarla a processed_data
-      for item in conjuntos:
-          RAW1_fatl.append((item, num, val, label))
-          
-  for entry in eq_falt2:
-      conjuntos, num, val, label = entry
-      # Para cada elemento en el conjunto, crear una nueva tupla y agregarla a processed_data
-      for item in conjuntos:
-          RAW2_fatl.append((item, num, val, label))
-        
-  print(RAW1_fatl)
+    conjuntos, num, val, label = entry
+    # Para cada elemento en el conjunto, crear una nueva tupla y agregarla a processed_data
+    for item in conjuntos:
+      RAW1_falt.append((item, num, val, label))
   
-  return RAW1_fatl, RAW2_fatl
+  for entry in eq_falt2:
+    conjuntos, num, val, label = entry
+    # Para cada elemento en el conjunto, crear una nueva tupla y agregarla a processed_data
+    for item in conjuntos:
+      RAW2_falt.append((item, num, val, label))
+      
+  for rama in RAW1_falt:
+    item = rama[0]
+    item_aux = from_to_to(item)
+    # Variable de control para indicar si se ha encontrado una coincidencia
+    found = False
+    # Iterar sobre RAW2_falt
+    for rama2 in RAW2_falt:
+      if item_aux in rama2:
+        # print(item, rama2)
+        found = True
+        break
+    # Si no se encontró coincidencia, agregar a no_match_ramas
+    if not found:
+        RAW1_falt2.append(rama)
+    # RAW1_falt2.append(rama)
+    
+  for rama in RAW2_falt:
+    item = rama[0]
+    item_aux = from_to_to(item)
+    # Variable de control para indicar si se ha encontrado una coincidencia
+    found = False
+    # Iterar sobre RAW2_falt
+    for rama2 in RAW1_falt:
+      if item_aux in rama2:
+        # print(item, rama2)
+        found = True
+        break
+    # Si no se encontró coincidencia, agregar a no_match_ramas
+    if not found:
+        RAW2_falt2.append(rama)
+    # RAW1_falt2.append(rama)
+    
+  # for rama in RAW2_falt:
+  #   item = rama[0]
+  #   item_aux = from_to_to(item)
+  #   for rama2 in RAW1_falt:
+  #     if item_aux in rama2:
+  #       # print(item, rama2)
+  #       break
+  #   else:
+  #     RAW2_falt2.append(rama)
+  #     continue
+          
+  print("RAW 1 repetidos: ", len(RAW1_falt2))
+  print("RAW 2 repetidos: ", len(RAW2_falt2))
+  
+  return RAW1_falt2, RAW2_falt2
 
+def from_to_to(rama):
+  new_elm = ''
+  elemento = rama.split('   ')
+  if len(elemento) == 3:
+    new_elm = elemento[2] + '   ' + elemento[1] + '   ' + elemento[0]
+    # print(new_elm)
+    
+  else:
+    pass
+  
+  return new_elm
 
 if __name__ == '__main__':
   main()

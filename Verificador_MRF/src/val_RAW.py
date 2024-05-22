@@ -284,13 +284,13 @@ class RAWDiag_Panel(wx.lib.scrolledpanel.ScrolledPanel):
         # Declara las listas de las ramas
         self.RAW1_listCtrl = self.mf.RAW1_listCtrl
         self.RAW1_listCtrl.InsertColumn(0, 'RAMA', width=200)
-        self.RAW1_listCtrl.InsertColumn(1, 'NODO TO')#, width=50)
-        self.RAW1_listCtrl.InsertColumn(2, 'ST')#, width=20)
+        self.RAW1_listCtrl.InsertColumn(1, 'NODO')#, width=50)
+        self.RAW1_listCtrl.InsertColumn(2, 'ST', width=50)
         self.RAW1_listCtrl.InsertColumn(3, 'TIPO')#, width=20)
         self.RAW2_listCtrl = self.mf.RAW2_listCtrl
         self.RAW2_listCtrl.InsertColumn(0, 'RAMA', width=200)
-        self.RAW2_listCtrl.InsertColumn(1, 'NODO TO')#, width=50)
-        self.RAW2_listCtrl.InsertColumn(2, 'ST')#, width=20)
+        self.RAW2_listCtrl.InsertColumn(1, 'NODO')#, width=50)
+        self.RAW2_listCtrl.InsertColumn(2, 'ST', width=50)
         self.RAW2_listCtrl.InsertColumn(3, 'TIPO')#, width=20)
         
         # Delcara el boton de diferencia de topología
@@ -562,7 +562,7 @@ class RAWDiag_Panel(wx.lib.scrolledpanel.ScrolledPanel):
                 rama = str(listCtrl.GetItem(index, 0).GetText())
                 numero_bus = listCtrl.GetItem(index, 1).GetText()
                 self.subRama_Stext.SetLabel(f"Rama: {rama}   Bus: {numero_bus}")
-                print(f"Numero de Bus de {listCtrl}:", numero_bus)
+                print(f"Numero de Bus de {rama}:", numero_bus)
                 if numero_bus == "None":
                     return 1
                 else:

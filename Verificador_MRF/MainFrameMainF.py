@@ -136,7 +136,5 @@ class App(wx.App):
         return True
     
 if __name__ == '__main__':
-    # main()
     app = App()
-    # frame = MainWindow(None)
     app.MainLoop()
