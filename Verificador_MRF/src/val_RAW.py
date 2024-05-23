@@ -20,8 +20,8 @@ from pyraw import RAWFile
 
 from .threads import LectorRamas, CompararTopologia, Grid2
 
-from .otros import get_dicc_equipos, make_dicc_buses_numero, make_dicc_branches_x_bus, \
-                      grafica_bus, puntos_semicircle
+from .otros import get_dicc_equipos, make_dicc_buses_numero, \
+                      grafica_bus
 
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from matplotlib.figure import Figure

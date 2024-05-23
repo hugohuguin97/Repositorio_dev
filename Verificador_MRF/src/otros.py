@@ -8,7 +8,65 @@ from usolibpy.rawfile import RAWFile2
 
 log = logging.getLogger('VERIFICADOR')
 
-      
+def get_encabezados(file):
+  """Analiza los archivos obtenidos de MAGE y obtienen los encabezados para
+  onvertir el archivo en un csv convecional.
+  
+  Parameters
+  ----------
+  file: str
+    Ruta del archivo a analizar.
+  
+  Returns
+  -------
+  encabezados: lista
+    Lista con los encabezados el archivo csv.
+  cuerpo: lista
+    Lista con el resto de renglones del archivo.
+    """
+  
+  encabezados = []
+  cuerpo = []
+  flg = 0
+  str_aux = ""
+  with open(file) as fp:
+    for i, row in enumerate(fp):
+      str_aux += row.replace("\n", "")
+      if ":\n" not in row:
+        if i == 0:
+          return None, None
+        break
+      if i == 0:
+        element_type = str_aux.replace(":", "").replace("\"", "")
+    for row in fp:
+      cuerpo.append(row)
+  for campo in str_aux.split(","):
+    campo_desglosado = campo.replace("\"", "").split(":")
+    if campo_desglosado[0] == element_type:
+      encabezados.append("_".join(campo_desglosado[1:]))
+    else:
+      encabezados.append("_".join(campo_desglosado))
+  return encabezados, cuerpo
+
+
+def replace_csv_format(file, encabezados, cuerpo):
+  """Toma la lista de encabezados y el cuerpo del archivo csv para crear un
+  nuevo archivo con el formato csv que usamos comunmente. 
+  Parameters
+  ----------
+  file: str
+    Ruta del archivo que se va a escribir.
+  encabezados: lista
+    Lista con los encabezados el archivo csv.
+  cuerpo: lista
+    Lista con el resto de renglones del archivo.
+  """
+  with open(file, "w", newline="") as fp:
+    fp.write(",".join(encabezados)+"\n")
+    for row in cuerpo:
+      fp.write(row)
+    fp.close()
+    
 def get_dicc_equipos(rawfile):
   """Crea el diccionario de equipos por bus a partir de un objeto RAWFile"""
   buses = rawfile.getBus()

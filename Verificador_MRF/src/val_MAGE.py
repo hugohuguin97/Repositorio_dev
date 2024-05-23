@@ -25,6 +25,7 @@ from openpyxl.drawing.image import Image
 from collections import defaultdict
 from src.arbol_mage import SP7Object, crear_arbol_mage, aniadir_terminales
 from usolibpy.otros import leer_csv
+from .threads import ProcesadorArchivos, ResultEvent#, Verificador_MAGE
 
 ruta_base = path.abspath(path.join(__file__, "../.."))
 ruta_resultados = path.join(ruta_base,"resultados")
@@ -440,96 +441,7 @@ class MAGE_panel(wx.lib.scrolledpanel.ScrolledPanel):
             # print(any_checked)
             self.mf.ValDesc_textCtrl.Clear()
             self.mf.hoja_resultante = set()
-
-def get_encabezados(file):
-	"""Analiza los archivos obtenidos de MAGE y obtienen los encabezados para
-	convertir el archivo en un csv convecional.
-
-	Parameters
-	----------
-	file: str
-		Ruta del archivo a analizar.
-
-	Returns
-	-------
-	encabezados: lista
-		Lista con los encabezados el archivo csv.
-	cuerpo: lista
-		Lista con el resto de renglones del archivo.
-	"""
-	encabezados = []
-	cuerpo = []
-	flg = 0
-	str_aux = ""
-	with open(file) as fp:
-		for i, row in enumerate(fp):
-			str_aux += row.replace("\n", "")
-			if ":\n" not in row:
-				if i == 0:
-					return None, None
-				break
-			if i == 0:
-				element_type = str_aux.replace(":", "").replace("\"", "")
-		for row in fp:
-			cuerpo.append(row)
-	for campo in str_aux.split(","):
-		campo_desglosado = campo.replace("\"", "").split(":")
-		if campo_desglosado[0] == element_type:
-			encabezados.append("_".join(campo_desglosado[1:]))
-		else:
-			encabezados.append("_".join(campo_desglosado))
-	return encabezados, cuerpo
-
-
-def replace_csv_format(file, encabezados, cuerpo):
-	"""Toma la lista de encabezados y el cuerpo del archivo csv para crear un
-	nuevo archivo con el formato csv que usamos comunmente.
-
-	Parameters
-	----------
-	file: str
-		Ruta del archivo que se va a escribir.
-	encabezados: lista
-		Lista con los encabezados el archivo csv.
-	cuerpo: lista
-		Lista con el resto de renglones del archivo.
-	"""
-	with open(file, "w", newline="") as fp:
-		fp.write(",".join(encabezados)+"\n")
-		for row in cuerpo:
-			fp.write(row)
-		fp.close()
-  
-class ProcesadorArchivos(Thread):
-    """Convierte los archivos *.csv que se exportan desde IMM-MAGE a un formato
-    csv más tradicional.
-
-    Los archivos csv que se transforman son todos aquellos en la ruta
-    establecida en la variable carpeta_insumos.
-    """
-    def __init__(self, parent, mf):
-        Thread.__init__(self)
-        self.mf = parent
-        self.mfp = mf
-
-    def run(self):
-        if path.isdir(self.mf.MAGEselected_path) == False:
-            mensaje = (
-                f"La carpeta elegida no es una carpeta válida:{self.mf.MAGEselected_path}"
-            )
-            dial = wx.MessageDialog( None, mensaje, "", wx.OK | wx.ICON_ERROR)
-            dial.ShowModal()
-            self.mfp.SetStatusText("Carpeta inválida, no se procesaron los archivos")
-            self.mfp.worker = None
-            return None
-        for file in glob(path.join(self.mf.MAGEselected_path, "*.csv")):
-            encabezado, cuerpo = get_encabezados(file)
-            if encabezado is not None:
-                replace_csv_format(file, encabezado, cuerpo)
-                self.mf.log.info(f"Se procesó el archivo {file}")
-        self.mfp.SetStatusText("Terminó la actividad")
-        self.mfp.worker = None           
-
+            
 class Verificador(Thread):
     """Realiza las verificaciones seleccionadas.
     """
@@ -673,7 +585,8 @@ class Verificador(Thread):
                         
                     wx.CallAfter(self.process_finished)
                     self.mfp.SetStatusText("Terminó la actividad")
-                    self.mfp.worker = None
+                    # self.mfp.worker = None
+                    wx.PostEvent(self.mfp, ResultEvent(True))
                     
                 except KeyError as ke:
                     # print(ke)

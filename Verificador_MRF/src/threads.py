@@ -3,14 +3,15 @@ import wx
 import wx.grid as gridlib
 import logging
 import time
+import xml.etree.ElementTree as ET
 
+from glob import glob
 from os import path
 from threading import Thread
 from collections import defaultdict
 from usolibpy.rawfile import RAWFile2
-import xml.etree.ElementTree as ET
 
-from .otros import comparar_topologia
+from .otros import comparar_topologia, replace_csv_format, get_encabezados
 
 TIPOS_VALIDOS = [
     "NAFlag",
@@ -218,9 +219,41 @@ class CompararTopologia(Thread):
             self._opc["raw_sp71"], self._opc["raw_sp72"], self._opc["sistema1"],
             self._opc["tipo_raw1"], self._opc["tipo_raw2"], self._opc["ruta_almacenaje"]
         )
+        self._mf.SetStatusText(u"Terminó la actividad")
+        wx.PostEvent(self._mf, ResultEvent(True))
 
-        wx.PostEvent(self._mf, ResultEvent(True)) 
-   
+class ProcesadorArchivos(Thread):
+    """Convierte los archivos *.csv que se exportan desde IMM-MAGE a un formato
+    csv más tradicional.
+
+    Los archivos csv que se transforman son todos aquellos en la ruta
+    establecida en la variable carpeta_insumos.
+    """
+    def __init__(self, parent, mf):
+        Thread.__init__(self)
+        self.mf = parent
+        self.mfp = mf
+
+    def run(self):
+        if path.isdir(self.mf.MAGEselected_path) == False:
+            mensaje = (
+                f"La carpeta elegida no es una carpeta válida:{self.mf.MAGEselected_path}"
+            )
+            dial = wx.MessageDialog( None, mensaje, "", wx.OK | wx.ICON_ERROR)
+            dial.ShowModal()
+            self.mfp.SetStatusText("Carpeta inválida, no se procesaron los archivos")
+            self.mfp.worker = None
+            return None
+        for file in glob(path.join(self.mf.MAGEselected_path, "*.csv")):
+            encabezado, cuerpo = get_encabezados(file)
+            if encabezado is not None:
+                replace_csv_format(file, encabezado, cuerpo)
+                self.mf.log.info(f"Se procesó el archivo {file}")
+                
+        self.mfp.SetStatusText("Terminó la actividad")
+        # self.mfp.worker = None           
+        wx.PostEvent(self.mfp, ResultEvent(True))
+ 
 class Verificador_XML(Thread):
     """Realiza las verificaciones seleccionadas.
     """
@@ -262,8 +295,10 @@ class Verificador_XML(Thread):
                 self.mf.log.info(f"APLICANDO BUSQUEDA EN EL JOB '{file_name}'")
                 
                 self.verificar_naflags(file_name, root)
-                self.mfp.SetStatusText("Terminó la actividad")
-                self.mfp.worker = None
+             
+            self.mfp.SetStatusText("Terminó la actividad")
+            # self.mfp.worker = None
+            wx.PostEvent(self.mfp, ResultEvent(True))
         else:
             mensaje = (
                 f"Seleccionar un archivo .xml"
@@ -293,7 +328,7 @@ class Verificador_XML(Thread):
                 for indice, elemento in enumerate(TIPOS_VALIDOS):
                     # print(elemento, instance, instance.attrib)
                     # Verificar si la instancia contiene 'ELEMENTOS'
-                    if elemento in instance.tag or elemento in instance.attrib:
+                    if elemento == instance.tag or elemento in instance.attrib:
                         # Verificar si el elemento ya está en el conjunto
                         if (indice, elemento) not in val_list:
                             # Agregar el elemento al conjunto

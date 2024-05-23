@@ -134,10 +134,7 @@ class XML_panel(wx.lib.scrolledpanel.ScrolledPanel):
         
         # Declaramos el bto de verificar
         self.bto_verificar = self.mf.bto_verificar_xml
-        self.bto_verificar.Bind(
-            wx.EVT_BUTTON, lambda event: self.inicializar_thread(event, Verificador_XML, self.mf, "Realizando validaciones")
-            # wx.EVT_BUTTON, lambda event: self.inicializar_thread(event, Verificador, self.mf, "Realizando validaciones")
-        )
+        self.bto_verificar.Bind(wx.EVT_BUTTON, self._verificar)
         
         self.search_textCtrl = self.mf.search_textCtrl
         self.verif_textCtrl = self.mf.verif_textCtrl
@@ -147,15 +144,19 @@ class XML_panel(wx.lib.scrolledpanel.ScrolledPanel):
         
         pass
     
-    def inicializar_thread(self, event, thread, parent, comentario):
-        """Inicializa un thread"""
+    def _verificar(self, event):
+        
         if self.mf.worker is None:
-            self.mf.SetStatusText(comentario)
-            # print(thread)
-            self.mf.worker = thread(self, parent)
+            self._ramasEnTabla = []
+            self._busesEnTabla = []
+            self.mf.SetStatusText(
+                u'Realizando el análisis de los archivos XML')
+            self.mf.worker = Verificador_XML(self, self.mf)
+            
             self.mf.worker.start()
         else:
-            self.mf.SetStatusText('Proceso ocupado, espere a finalizar el anterior.')
+            self.mf.SetStatusText(
+                'Proceso ocupado, espere a finalizar el anterior.')
         
     def XMLpath_select(self, event):
         self.XMLselected_path = self.XML_pathSel.GetPath()
@@ -174,7 +175,8 @@ class XML_panel(wx.lib.scrolledpanel.ScrolledPanel):
             Variable de la carpeta elegida
             
         """
-        self.mf.val_dic = defaultdict(list)
+        
+        self.reset_panel(self)
         start_time = self.start_tPicker.GetTime()
         end_time = self.end_tPicker.GetTime()
         start_hour, start_minute, start_second = start_time
@@ -259,7 +261,7 @@ class XML_panel(wx.lib.scrolledpanel.ScrolledPanel):
         # Almacenamos el contenido y formato original
         self.fmt_text_ini = self.XML_TextCtrl.GetText()
         self.fmt_style_ini = self.XML_TextCtrl.GetStyleBits()
-        self.reset_panel(self)
+        # self.reset_panel(self)
         
         
     def on_search(self, event):
@@ -367,7 +369,7 @@ class XML_panel(wx.lib.scrolledpanel.ScrolledPanel):
         else:
             # print(self.word_styles_aux)
             for word_ind in self.word_styles_aux.items():
-                print(word_ind)
+                # print(word_ind)
                 self.XML_TextCtrl.StartStyling(word_ind[0])
                 self.XML_TextCtrl.SetStyling(len(word_ind[1][1]), word_ind[1][0])
                 self.XML_TextCtrl.MarkerAdd(word_ind[1][2], 10)
@@ -380,6 +382,7 @@ class XML_panel(wx.lib.scrolledpanel.ScrolledPanel):
                     break
                 
                 if instancia_cierre != '':
+                    # end_pos = self.XML_TextCtrl.FindText(start_pos_aux-1, self.XML_TextCtrl.GetLength(), instancia_cierre, stc.STC_FIND_WHOLEWORD)
                     end_pos = self.XML_TextCtrl.FindText(start_pos_aux-1, self.XML_TextCtrl.GetLength(), instancia_cierre)#, stc.STC_FIND_WHOLEWORD)
                     # start_pos_aux = end_pos[1]
                     end_pos = end_pos[0]
@@ -409,17 +412,19 @@ class XML_panel(wx.lib.scrolledpanel.ScrolledPanel):
             pass
             
     def reset_panel(self, event):
+        self.mf.val_dic = defaultdict(list)
         # Limpia los marcadores 
         self.XML_TextCtrl.MarkerDeleteAll(10)
+        self.XML_TextCtrl.ClearAll()
         # Limpia el panel de busqueda
         self.search_textCtrl.Clear()
         # Limpia el panel de validaciones
         self.verif_textCtrl.Clear()
         
         # Limpia la lista de elementos
-        # self.verif_cBox.Clear()
+        self.verif_cBox.Clear()
         # Escribe Validaciones en la lsita de elementos
-        # self.verif_cBox.SetValue("Validaciones")
+        self.verif_cBox.SetValue("Validaciones")
         
         # Cambiar el color del botón de nuevo a su color original
         self.bto_verificar.SetBackgroundColour(wx.NullColour)  # Restaurar el color original
